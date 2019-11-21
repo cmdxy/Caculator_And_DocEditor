@@ -1,3 +1,6 @@
+#cumt 高级语言程序设计课程作业
+#很大程度参考了别人的代码
+
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5.Qt import *
