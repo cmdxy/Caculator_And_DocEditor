@@ -12,4 +12,5 @@
   * Open , creat , save a text file
   * set font and font style
   * cut / paste / copy / find
+  * Multiple windows
 
