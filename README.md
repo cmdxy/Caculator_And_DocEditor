@@ -11,6 +11,6 @@
 * function :
   * Open , creat , save a text file
   * set font and font style
-  * cut / paste / copy / find
+  * cut / paste / copy / find / replace
   * Multiple windows
 
