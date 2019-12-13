@@ -2,7 +2,7 @@ import sys
 import textedit
 import webbrowser
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QIcon,QPalette,QTextCursor
+from PyQt5.QtGui import QIcon,QPalette,QTextCursor,QTextDocument
 from PyQt5.QtCore import Qt,QMimeData,QFile, QFileInfo
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit, QAction, QFileDialog, QMessageBox,\
                             QFontDialog, QColorDialog,QVBoxLayout,QWidget,QFileDialog, QMessageBox
@@ -17,10 +17,14 @@ class Editor(QMainWindow,QWidget):
     def __init__(self):
         super(Editor, self).__init__()
 
-        #测试
+        #用于search功能
+        self.count = 0;
+        self.sw_work = False
+        #新建SearchBox控件
         self.SearchBox = QWidget()
-        #设置模态显示
+        #设置控件模态显示
         self.SearchBox.setWindowModality(Qt.ApplicationModal)
+        #搜索框UI
         self.SearchBox.setWindowTitle("搜索框")
         self.SearchBox.keyword_label = QLabel('关键字:', self)
         self.SearchBox.replace_label = QLabel('替换为:', self)
@@ -47,27 +51,25 @@ class Editor(QMainWindow,QWidget):
         self.SearchBox.all_v_layout.addLayout(self.SearchBox.button_h_layout)
 
         self.SearchBox.setLayout(self.SearchBox.all_v_layout)
-        #调试，SearchBox类的按钮连接Editor类的search_word函数
+        #SearchBox类的按钮连接Editor类的search_word函数和replace_word函数
         self.SearchBox.search_button.clicked.connect(self.search_word)
         self.SearchBox.replace_button.clicked.connect(self.replace_word)          
 
 
 
-
-
-        #new
+        #设置窗体标题/图标
         self.setWindowTitle(" Little NotePad ")
         self.setWindowIcon(QIcon('images2/记事本.PNG'))
 
-        #new
+        #设置多窗口控件
         self.mdiArea = QtWidgets.QMdiArea()
         
-        #self.search_box = SearchBox()
         
         #0-竖向，1-横向，2-重叠
         self.layout_type = 0;
 
 
+        #窗体UI
         self.file_menu = self.menuBar().addMenu('文件(F)')
         self.edit_menu = self.menuBar().addMenu('编辑(E)')
         #new
@@ -86,7 +88,8 @@ class Editor(QMainWindow,QWidget):
         self.open_action = QAction('Open', self)
         self.save_action = QAction('Save', self)
         self.save_as_action = QAction('Save As', self)
-        #self.close_action = QAction('Close', self)
+        
+
         self.cut_action = QAction('Cut', self)
         self.copy_action = QAction('Copy', self)
         self.paste_action = QAction('Paste', self)
@@ -94,7 +97,7 @@ class Editor(QMainWindow,QWidget):
         self.color_action = QAction('Color', self)
         self.about_action = QAction('关于作者', self)
 
-        #view
+        
         self.actionHorizontal = QAction('Horizontal', self)
         self.actionVertical = QAction('Vertical', self)
         self.actionPile = QAction('Pile', self)
@@ -106,12 +109,11 @@ class Editor(QMainWindow,QWidget):
         self.actionDelete = QAction('Delete',self)
         self.actionRecover = QAction('Recover',self)
 
-        #remove
-        #self.text_edit = QTextEdit(self)
-
+        #剪贴板功能相关
         self.mime_data = QMimeData()
         self.clipboard = QApplication.clipboard()
 
+        #设置窗体大小
         self.setCentralWidget(self.mdiArea)
         self.resize(1200, 800)
 
@@ -119,8 +121,7 @@ class Editor(QMainWindow,QWidget):
         self.toolbar_init()
         self.status_bar_init()
         self.action_init()
-        #remove
-        #self.text_edit_int()
+
 
     def menu_init(self):
         self.file_menu.addAction(self.new_action)
@@ -438,44 +439,98 @@ class Editor(QMainWindow,QWidget):
     def search_func(self):
         if self.empty():
             return 
-        self.SearchBox.show()
 
-        
-    
+        sub = self.mdiArea.activeSubWindow().widget()
+        sub.moveCursor(QTextCursor.Start)
+        self.count = -1;
+        self.SearchBox.show()
+       
+ 
+ 
+    #
     
     def search_word(self):
+
         pattern = self.SearchBox.keyword_line.text()
         if pattern == "":
             return ;
         sub = self.mdiArea.activeSubWindow().widget()
-       # sub.setTextCursor(sub.textCursor())
-        sub.moveCursor(QTextCursor.Start)
+  
         if sub.find(pattern):
+            #找到了才标记起作用
+            self.sw_work = True
+            #测试
+            self.count = self.count + 1
+        
+            print("self.count",self.count)
             palette = sub.palette()
             palette.setColor(QPalette.Highlight, palette.color(QPalette.Active,QPalette.Highlight))
             sub.setPalette(palette)
+        else:
+            sub.moveCursor(QTextCursor.Start)
+            self.count = -1;
+            if sub.find(pattern):
+                self.count = self.count + 1
+                self.sw_work = True
+                palette = sub.palette()
+                palette.setColor(QPalette.Highlight, palette.color(QPalette.Active,QPalette.Highlight))
+                sub.setPalette(palette)
+            print("self.count",self.count)
+                
+        
+        print("search_word self.count:" ,self.count)
+
+
+
 
     def replace_word(self):
+        #确保被选中才能执行replace_word
+        if not self.sw_work:
+            return 
+        else:
+            self.sw_work = False
+
         pattern = self.SearchBox.keyword_line.text()
         sub = self.mdiArea.activeSubWindow().widget()
-        #这句不要忘了
-        sub.moveCursor(QTextCursor.Start)
-        if not sub.find(pattern):
-            print(pattern)
-            print("workless")
-            return 
+
+
         tar = self.SearchBox.replace_line.text()
         text = sub.toPlainText()
-        idx = text.find(pattern)
+        #待替换关键词的长度
         l = len(pattern)
+
+        #开始搜索的索引
+        start = 0
+        backup = self.count     
+
+        while(backup):
+            print("循环里backup :",backup)
+            idx = text.find(pattern,start)
+            print("循环里idx :",idx)
+            start = (idx+l)
+            backup = backup - 1;
+        idx = text.find(pattern,start)
+        print("出来时start：",start)
+        print("出来时：",backup)
+        print("idx:" ,idx)
         h = text[0:idx]
         t = text[idx+l:]
-        print(idx)
-        print(l)
-        print(h)
-        print(t)
+        print("关键字长度：",l)
+        print("前缀：",h)
+        print("后缀：",t)
+        print("self.count:" ,self.count)
         text = h + tar + t
         sub.setText(text)
+
+        self.count -= 1
+        bk = self.count
+        sub.moveCursor(QTextCursor.Start)
+        while bk!=-1:
+            self.sw_work = True
+            bk-=1
+            sub.find(pattern)
+
+
         
     
 
